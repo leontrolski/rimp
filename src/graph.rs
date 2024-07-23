@@ -46,6 +46,34 @@ struct Graph {
 }
 
 impl Graph {
+    pub fn pretty_str(&self) -> String {
+        let mut pretty = String::new();
+        pretty.push_str("hierarchy_module_indices\n");
+        let mut hierarchy_module_indices_sorted: Vec<_> =
+            self.hierarchy_module_indices.iter().collect();
+        hierarchy_module_indices_sorted.sort_by_key(|(_, index)| index.index());
+        for (from_module, from_index) in hierarchy_module_indices_sorted {
+            for to_index in self.hierarchy.neighbors(*from_index) {
+                let to_module = self
+                    .hierarchy_module_indices
+                    .get_by_right(&to_index)
+                    .unwrap();
+                pretty.push_str(format!("{} -> {}\n", from_module.name, to_module.name).as_str());
+            }
+        }
+
+        pretty.push_str("imports_module_indices\n");
+        let mut imports_module_indices_sorted: Vec<_> =
+            self.imports_module_indices.iter().collect();
+        imports_module_indices_sorted.sort_by_key(|(_, index)| index.index());
+        for (from_module, from_index) in imports_module_indices_sorted {
+            for to_index in self.imports.neighbors(*from_index) {
+                let to_module = self.imports_module_indices.get_by_right(&to_index).unwrap();
+                pretty.push_str(format!("{} -> {}\n", from_module.name, to_module.name).as_str());
+            }
+        }
+        pretty
+    }
     pub fn add_module(&mut self, module: &Module) {
         // This clone sucks
         let name = module.name.clone();
@@ -665,7 +693,54 @@ mod tests {
         graph.add_import(&mypackage_foo_alpha, &mypackage_bar_beta);
         graph.add_import(&mypackage_foobar, &mypackage_foo_beta);
 
+        assert_eq!(
+            graph.pretty_str(),
+            "
+hierarchy_module_indices
+mypackage.foo -> mypackage.foo.beta
+mypackage.foo -> mypackage.foo.alpha
+mypackage -> mypackage.foobar
+mypackage -> mypackage.bar
+mypackage -> mypackage.foo
+mypackage.bar -> mypackage.bar.beta
+mypackage.foo.alpha -> mypackage.foo.alpha.blue
+imports_module_indices
+mypackage.foo.alpha -> mypackage.bar.beta
+mypackage.foo.alpha -> mypackage.bar.beta
+mypackage.foobar -> mypackage.foo.beta
+"
+            .trim_start()
+        );
+
+        assert_eq!(
+            graph.get_modules(),
+            HashSet::from([
+                &mypackage_foo,
+                &mypackage,
+                &mypackage_foo_alpha_blue,
+                &mypackage_foo_beta,
+                &mypackage_foo_alpha,
+                &mypackage_bar,
+                &mypackage_bar_beta,
+                &mypackage_foobar,
+            ])
+        );
         graph.squash_module(&mypackage_foo);
+
+        assert_eq!(
+            graph.pretty_str(),
+            "
+hierarchy_module_indices
+mypackage -> mypackage.foobar
+mypackage -> mypackage.bar
+mypackage -> mypackage.foo
+mypackage.bar -> mypackage.bar.beta
+imports_module_indices
+mypackage.foobar -> mypackage.foo
+mypackage.foo -> mypackage.bar.beta
+"
+            .trim_start()
+        );
 
         assert_eq!(
             graph.get_modules(),
