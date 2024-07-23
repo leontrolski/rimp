@@ -165,14 +165,17 @@ impl Graph {
     }
 
     pub fn find_modules_that_directly_import(&self, imported: &Module) -> HashSet<&Module> {
-        let imported_index = *self.imports_module_indices.get_by_left(imported).unwrap();
         println!(
             "module, {:?}, imported_index {:?}",
             imported, imported_index
         );
+        let imported_index_or_none = self.imports_module_indices.get_by_left(imported);
+        if imported_index_or_none.is_none() {
+            return HashSet::new();
+        }
         let importer_indices: HashSet<NodeIndex> = self
             .imports
-            .neighbors_directed(imported_index, Direction::Incoming)
+            .neighbors_directed(*imported_index_or_none.unwrap(), Direction::Incoming)
             .collect();
 
         println!("importer indices {:?}", importer_indices);
@@ -194,10 +197,13 @@ impl Graph {
     }
 
     pub fn find_modules_directly_imported_by(&self, importer: &Module) -> HashSet<&Module> {
-        let importer_index = *self.imports_module_indices.get_by_left(importer).unwrap();
+        let importer_index_or_none = self.imports_module_indices.get_by_left(importer);
+        if importer_index_or_none.is_none() {
+            return HashSet::new();
+        }
         let imported_indices: HashSet<NodeIndex> = self
             .imports
-            .neighbors_directed(importer_index, Direction::Outgoing)
+            .neighbors_directed(*importer_index_or_none.unwrap(), Direction::Outgoing)
             .collect();
 
         let importeds: HashSet<&Module> = imported_indices
