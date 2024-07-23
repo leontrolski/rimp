@@ -46,10 +46,12 @@ struct Graph {
 }
 
 impl Graph {
-    pub fn add_module(&mut self, module: Module) {
-        let module_index = self.hierarchy.add_node(module.clone());
+    pub fn add_module(&mut self, module: &Module) {
+        // This clone sucks
+        let name = module.name.clone();
+        let module_index = self.hierarchy.add_node(Module { name: name.clone() });
         self.hierarchy_module_indices
-            .insert(module.clone(), module_index);
+            .insert(Module { name: name }, module_index);
 
         // Add to the hierarchy from the module's parent, if it has one.
         if !module.is_root() {
@@ -59,7 +61,7 @@ impl Graph {
             let parent_index = match self.hierarchy_module_indices.get_by_left(&parent) {
                 Some(index) => index,
                 None => {
-                    self.add_module(parent.clone());
+                    self.add_module(&parent);
                     self.hierarchy_module_indices.get_by_left(&parent).unwrap()
                 }
             };
@@ -188,7 +190,7 @@ impl Graph {
         let modules_imported_by_descendants: Vec<Module> = descendants
             .iter()
             .flat_map(|descendant| {
-                self.find_modules_directly_imported_by(descendant)
+                self.find_modules_directly_imported_by(&descendant)
                     .into_iter()
                     .cloned()
             })
@@ -196,7 +198,7 @@ impl Graph {
         let modules_that_import_descendants: Vec<Module> = descendants
             .iter()
             .flat_map(|descendant| {
-                self.find_modules_that_directly_import(descendant)
+                self.find_modules_that_directly_import(&descendant)
                     .into_iter()
                     .cloned()
             })
@@ -232,7 +234,7 @@ impl Graph {
 
     fn add_module_if_not_in_hierarchy(&mut self, module: &Module) {
         if self.hierarchy_module_indices.get_by_left(&module).is_none() {
-            self.add_module(module.clone());
+            self.add_module(&module);
         };
     }
 }
@@ -260,7 +262,7 @@ mod tests {
     fn add_module() {
         let mypackage = Module::new("mypackage".to_string());
         let mut graph = Graph::default();
-        graph.add_module(mypackage.clone());
+        graph.add_module(&mypackage);
 
         let result = graph.get_modules();
 
@@ -272,8 +274,8 @@ mod tests {
         let mut graph = Graph::default();
         let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
 
         let result = graph.get_modules();
 
@@ -308,8 +310,8 @@ mod tests {
         let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
 
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
 
         assert_eq!(graph.find_children(&mypackage_foo), HashSet::new());
     }
@@ -321,9 +323,9 @@ mod tests {
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
 
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
 
         assert_eq!(
             graph.find_children(&mypackage),
@@ -338,9 +340,9 @@ mod tests {
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
 
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
 
         assert_eq!(
             graph.find_children(&mypackage),
@@ -355,8 +357,8 @@ mod tests {
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
 
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
 
         assert_eq!(
             graph.find_children(&Module::new("mypackage".to_string())),
@@ -375,13 +377,13 @@ mod tests {
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
 
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
 
         assert_eq!(graph.find_descendants(&mypackage_bar), HashSet::new());
     }
@@ -397,13 +399,13 @@ mod tests {
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
 
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
 
         assert_eq!(
             graph.find_descendants(&mypackage_foo),
@@ -422,9 +424,9 @@ mod tests {
         let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, false));
@@ -436,9 +438,9 @@ mod tests {
         let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
         assert!(!graph.direct_import_exists(&mypackage_bar, &mypackage_foo, false));
@@ -451,10 +453,10 @@ mod tests {
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
         let mypackage_foo_alpha = Module::new("mypackage.foo.alpha".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
         graph.add_import(&mypackage_bar, &mypackage_foo_alpha);
 
         assert!(!graph.direct_import_exists(&mypackage_bar, &mypackage_foo, false));
@@ -466,7 +468,7 @@ mod tests {
         let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
-        graph.add_module(mypackage_bar.clone());
+        graph.add_module(&mypackage_bar);
 
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
@@ -483,7 +485,7 @@ mod tests {
         let mypackage = Module::new("mypackage".to_string());
         let mypackage_foo = Module::new("mypackage.foo".to_string());
         let mypackage_bar = Module::new("mypackage.bar".to_string());
-        graph.add_module(mypackage_foo.clone());
+        graph.add_module(&mypackage_foo);
 
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
@@ -504,13 +506,13 @@ mod tests {
         let mypackage_foo_alpha_blue = Module::new("mypackage.foo.alpha.blue".to_string());
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
         // Add an import in the other direction.
         graph.add_import(&mypackage_bar, &mypackage_foo);
 
@@ -527,13 +529,13 @@ mod tests {
         let mypackage_foo_alpha_blue = Module::new("mypackage.foo.alpha.blue".to_string());
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
         graph.add_import(&mypackage_foo, &mypackage_bar);
 
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, true));
@@ -549,13 +551,13 @@ mod tests {
         let mypackage_foo_alpha_blue = Module::new("mypackage.foo.alpha.blue".to_string());
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
         graph.add_import(&mypackage_bar, &mypackage_foo_alpha);
 
         assert!(graph.direct_import_exists(&mypackage_bar, &mypackage_foo, true));
@@ -571,13 +573,13 @@ mod tests {
         let mypackage_foo_alpha_blue = Module::new("mypackage.foo.alpha.blue".to_string());
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
         graph.add_import(&mypackage_foo_alpha, &mypackage_bar);
 
         assert!(graph.direct_import_exists(&mypackage_foo, &mypackage_bar, true));
@@ -594,13 +596,13 @@ mod tests {
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
         let anotherpackage = Module::new("anotherpackage".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
         graph.add_import(&mypackage_foo_alpha, &mypackage_bar);
         graph.add_import(&anotherpackage, &mypackage_bar);
         graph.add_import(&mypackage_bar, &mypackage_foo_alpha_green);
@@ -624,13 +626,13 @@ mod tests {
         let mypackage_foo_alpha_green = Module::new("mypackage.foo.alpha.green".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
         let anotherpackage = Module::new("anotherpackage".to_string());
-        graph.add_module(mypackage.clone());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_alpha_green.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage);
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_alpha_green);
+        graph.add_module(&mypackage_foo_beta);
         graph.add_import(&mypackage_bar, &mypackage_foo_alpha);
         graph.add_import(&mypackage_bar, &anotherpackage);
         graph.add_import(&mypackage_foo_alpha_green, &mypackage_bar);
@@ -654,11 +656,11 @@ mod tests {
         let mypackage_foo_alpha_blue = Module::new("mypackage.foo.alpha.blue".to_string());
         let mypackage_foo_beta = Module::new("mypackage.foo.beta".to_string());
         let mypackage_bar_beta = Module::new("mypackage.bar.beta".to_string());
-        graph.add_module(mypackage_foo.clone());
-        graph.add_module(mypackage_bar.clone());
-        graph.add_module(mypackage_foo_alpha.clone());
-        graph.add_module(mypackage_foo_alpha_blue.clone());
-        graph.add_module(mypackage_foo_beta.clone());
+        graph.add_module(&mypackage_foo);
+        graph.add_module(&mypackage_bar);
+        graph.add_module(&mypackage_foo_alpha);
+        graph.add_module(&mypackage_foo_alpha_blue);
+        graph.add_module(&mypackage_foo_beta);
         graph.add_import(&mypackage_foo_alpha, &mypackage_bar_beta);
         graph.add_import(&mypackage_foo_alpha, &mypackage_bar_beta);
         graph.add_import(&mypackage_foobar, &mypackage_foo_beta);
