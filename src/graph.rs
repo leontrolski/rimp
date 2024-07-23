@@ -214,7 +214,12 @@ impl Graph {
     #[allow(unused_variables)]
     pub fn squash_module(&mut self, module: &Module) {
         // Get descendants and their imports.
-        let descendants = self.find_descendants(module);
+        let descendants: Vec<_> = self
+            .find_descendants(module)
+            .into_iter()
+            .map(|m| m.to_owned())
+            .collect();
+
         let modules_imported_by_descendants: Vec<Module> = descendants
             .iter()
             .flat_map(|descendant| {
@@ -238,16 +243,16 @@ impl Graph {
                 .hierarchy_module_indices
                 .get_by_left(&descendant)
                 .unwrap();
-            // self.hierarchy
-            //     .remove_node(descendant_hierarchy_index.clone());
-            // self.hierarchy_module_indices.remove_by_left(descendant);
+            self.hierarchy
+                .remove_node(descendant_hierarchy_index.clone());
+            self.hierarchy_module_indices.remove_by_left(&descendant);
 
-            let descendant_imports_index = self
-                .imports_module_indices
+            self.imports_module_indices
                 .get_by_left(&descendant)
-                .unwrap();
-            // self.imports.remove_node(descendant_imports_index.clone());
-            // self.imports_module_indices.remove_by_left(descendant);
+                .map(|descendant_imports_index| {
+                    self.imports.remove_node(descendant_imports_index.clone())
+                });
+            self.imports_module_indices.remove_by_left(&descendant);
         }
 
         // Add descendants and imports to parent module.
